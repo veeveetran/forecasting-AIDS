@@ -1,0 +1,176 @@
+---
+title: "PSTAT 174"
+author: "Vivian Tran"
+date: "3/12/2018"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Abstract 
+My project addresses how to find a linear model to forecast the future values of a monthly time series. I accomplished this task by determining potential ARIMA models through the autocorrelation and partial autocorrelation functions of the stationary data. I also analyzed the AICc values. After testing potential models for independence, I began the forecasting process. I plotted the original time series but removed the 10 last data points. I used the forecast() function on each model to predict ten points ahead and plotted the prediction onto the time series. Through this method, I concluded that an ARIMA(9,3,12) model created the closest fit to the ten missing points.
+
+
+##Introduction
+My data set contains the monthly number of adults ages 30-34 who are diagnosed with AIDS in the United states from 1993 to 2002. By forecasting the future number of cases, medical suppliers and healthcare providers can plan their resources and better care for patients in the later years. I retrieved my data from CDC WONDER, CDC’s database for public-use health data. A full description of the dataset can be found on their [website](https://wonder.cdc.gov/wonder/help/aids.html). I used R to analyze the data.
+
+###Packages Used
+```{r}
+library(MASS)
+library(qpcR)
+library(forecast)
+```
+
+
+```{r}
+#read data
+
+AIDS <- read.csv("AIDS.csv", header= TRUE,sep=",")
+
+AIDS_ts<-ts(AIDS$Cases, start=c(1993,1), freq=12)
+```
+
+```{r}
+#plot data
+ts.plot(AIDS_ts, main="Adults ages 30-34 diagnosed with AIDS in the US, 1993-2002, monthly", ylab="Number of cases", xlab="time")
+```
+
+```{r}
+#boxcox
+bcTrans <- boxcox(AIDS_ts ~ as.numeric(1:length(AIDS_ts)))
+bcTrans2 <- boxcox(AIDS_ts ~ as.numeric(1:length(AIDS_ts)), lambda=seq(-.5,.5, len=100))
+```
+
+```{r}
+#choose lambda=0, so log transform
+y.log <- log(AIDS_ts) 
+
+#plot transformation
+
+ts.plot(y.log,main = "Log")
+```
+
+```{r}
+# differencing to remove trend
+y.log.diff3 <- diff(y.log,3)
+ts.plot(y.log.diff3,main = "Differenced Data 3 times",ylab=expression(paste(nabla,y)))
+
+#differencing at lag1 3 times has lowest variance
+```
+
+```{r}
+#acf, pacf
+
+op <- par(mfrow = c(1,2))
+acf(y.log.diff3)
+pacf(y.log.diff3)
+par(op)
+```
+
+```{r}
+# Calculate AICc for ARMA models with p and q 
+#suggested model: ARIMA(9,3,4)
+
+aiccs <- matrix(NA, nr = 11, nc = 13)
+dimnames(aiccs) = list(p=0:10, q=0:12)
+for(p in 0:10)
+{
+  for(q in 0:12)
+  {
+    aiccs[p+1,q+1] = AICc(arima(y.log.diff3, order = c(p,0,q), method="ML"))
+  }
+}
+aiccs
+```
+
+```{r}
+#coefficients of potential models
+fit = arima(y.log.diff3, order=c(9,3,4),method="ML") #lowest AICc
+fit = arima(y.log.diff3, order=c(9,3,10),method="ML") #check just in case
+fit = arima(y.log.diff3, order=c(9,3,12),method="ML") #suggested model by ACF/PACF
+fit
+```
+
+```{r}
+# Test for independence of residuals
+Box.test(residuals(fit), type="Ljung")
+Box.test(residuals(fit), type="Box-Pierce")
+#test normality of residuals
+shapiro.test(residuals(fit))
+
+ts.plot(residuals(fit),main = "Fitted Residuals")
+
+
+par(mfrow=c(1,2),oma=c(0,0,2,0))
+# Plot diagnostics of residuals
+op <- par(mfrow=c(2,2))
+# acf
+acf(residuals(fit),main = "Autocorrelation")
+acf((residuals(fit))^2,main = "Autocorrelation") #show dependence/correlation between squartes;typical; use non-linear models 
+
+# pacf
+pacf(residuals(fit),main = "Partial Autocorrelation")
+
+# Histogram
+hist(residuals(fit),main = "Histogram")
+# q-q plot
+qqnorm(residuals(fit))
+qqline(residuals(fit),col ="blue")
+# Add overall title
+title("Fitted Residuals Diagnostics", outer=TRUE)
+par(op)
+
+
+
+```
+
+```{r}
+#setwd("C:/Users/Vivian/Documents/PSTAT174_project")
+#data forecasting 
+AIDS_ts_mod<-ts(AIDS$Cases, start=c(1994,1), freq=12, end=c(2002,7))
+```
+
+
+
+```{r}
+#install.packages("forecast")
+
+#plot data with 5 less points
+ts.plot(AIDS_ts_mod, main="Adults ages 30-34 diagnosed with AIDS in the US, 1994-2002, monthly", ylab="Number of cases", xlab="time")
+
+
+mypred <- predict(fit, n.ahead=5)
+pred.orig <-exp(mypred$pred) #backtransform
+mypred.se <- exp(mypred$se)#st. errors for original predictions
+
+# ts.plot(AIDS_ts_mod,xlim=c(1,length(AIDS_ts_mod)+5),ylim=c(0,max(pred.orig+1.96*mypred.se)))
+# 
+# ts.plot(AIDS_ts_mod, xlim = c(1994, 2003))
+# 
+# points((length(AIDS_ts_mod)+1):(length(AIDS_ts_mod)+5),pred.orig)
+# lines(99:103,pred.orig+1.96*mypred.se,lty=2)
+# lines(99:103,pred.orig-1.96*mypred.se,lty=2)
+
+fcast <- forecast(fit, h=5)
+
+
+mod <- window(AIDS_ts_mod)
+fit_AIDS = arima(mod, order=c(9,3,12),method="ML")
+
+fcast_AIDS <- forecast(fit_AIDS, h=5)
+
+
+
+plot(fcast_AIDS)
+
+
+AIDS <- read.csv("AIDS.csv", header= TRUE,sep=",")
+
+AIDS_ts_orig<-ts(AIDS$Cases, start=c(1993,1), freq=12)
+
+ts.plot(AIDS_ts_orig, main="Adults ages 30-34 diagnosed with AIDS in the US, 1993-2002, monthly", ylab="Number of cases", xlab="time")
+```
