@@ -3,8 +3,7 @@ title: "PSTAT 174"
 author: "Vivian Tran"
 date: "3/12/2018"
 output:
-  html_document:
-    df_print: paged
+  github_document
 ---
 
 ```{r setup, include=FALSE}
