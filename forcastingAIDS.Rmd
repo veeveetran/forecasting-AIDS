@@ -71,7 +71,7 @@ pacf(y.log.diff3)
 par(op)
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 # Calculate AICc for ARMA models with p and q 
 #suggested model: ARIMA(9,3,4)
 
@@ -87,51 +87,114 @@ for(p in 0:10)
 aiccs
 ```
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #coefficients of potential models
-fit = arima(y.log.diff3, order=c(9,3,4),method="ML") #lowest AICc
-fit = arima(y.log.diff3, order=c(9,3,10),method="ML") #check just in case
-fit = arima(y.log.diff3, order=c(9,3,12),method="ML") #suggested model by ACF/PACF
-fit
+fit1 = arima(y.log.diff3, order=c(9,3,4),method="ML") #lowest AICc
+fit2 = arima(y.log.diff3, order=c(9,3,10),method="ML") #check just in case
+fit3 = arima(y.log.diff3, order=c(9,3,12),method="ML") #suggested model by ACF/PACF
+
+fit1
+fit2
+fit3
 ```
 
+####ARIMA(9,3,4)
 ```{r}
 # Test for independence of residuals
-Box.test(residuals(fit), type="Ljung")
-Box.test(residuals(fit), type="Box-Pierce")
+Box.test(residuals(fit1), type="Ljung")
+Box.test(residuals(fit1), type="Box-Pierce")
 #test normality of residuals
-shapiro.test(residuals(fit))
+shapiro.test(residuals(fit1))
 
-ts.plot(residuals(fit),main = "Fitted Residuals")
+ts.plot(residuals(fit1),main = "Fitted Residuals")
 
 
 par(mfrow=c(1,2),oma=c(0,0,2,0))
 # Plot diagnostics of residuals
 op <- par(mfrow=c(2,2))
 # acf
-acf(residuals(fit),main = "Autocorrelation")
-acf((residuals(fit))^2,main = "Autocorrelation") #show dependence/correlation between squartes;typical; use non-linear models 
+acf(residuals(fit1),main = "Autocorrelation")
+acf((residuals(fit1))^2,main = "Autocorrelation") #show dependence/correlation between squartes;typical; use non-linear models 
 
 # pacf
-pacf(residuals(fit),main = "Partial Autocorrelation")
+pacf(residuals(fit1),main = "Partial Autocorrelation")
 
 # Histogram
-hist(residuals(fit),main = "Histogram")
+hist(residuals(fit1),main = "Histogram")
 # q-q plot
-qqnorm(residuals(fit))
-qqline(residuals(fit),col ="blue")
+qqnorm(residuals(fit1))
+qqline(residuals(fit1),col ="blue")
 # Add overall title
 title("Fitted Residuals Diagnostics", outer=TRUE)
 par(op)
+```
+
+####ARIMA(9,3,10)
+```{r}
+# Test for independence of residuals
+Box.test(residuals(fit2), type="Ljung")
+Box.test(residuals(fit2), type="Box-Pierce")
+#test normality of residuals
+shapiro.test(residuals(fit2))
+
+ts.plot(residuals(fit2),main = "Fitted Residuals")
 
 
+par(mfrow=c(1,2),oma=c(0,0,2,0))
+# Plot diagnostics of residuals
+op <- par(mfrow=c(2,2))
+# acf
+acf(residuals(fit2),main = "Autocorrelation")
+acf((residuals(fit2))^2,main = "Autocorrelation") #show dependence/correlation between squartes;typical; use non-linear models 
 
+# pacf
+pacf(residuals(fit2),main = "Partial Autocorrelation")
+
+# Histogram
+hist(residuals(fit2),main = "Histogram")
+# q-q plot
+qqnorm(residuals(fit2))
+qqline(residuals(fit2),col ="blue")
+# Add overall title
+title("Fitted Residuals Diagnostics", outer=TRUE)
+par(op)
+```
+
+####ARIMA(9,3,12)
+```{r}
+# Test for independence of residuals
+Box.test(residuals(fit3), type="Ljung")
+Box.test(residuals(fit3), type="Box-Pierce")
+#test normality of residuals
+shapiro.test(residuals(fit3))
+
+ts.plot(residuals(fit3),main = "Fitted Residuals")
+
+
+par(mfrow=c(1,2),oma=c(0,0,2,0))
+# Plot diagnostics of residuals
+op <- par(mfrow=c(2,2))
+# acf
+acf(residuals(fit3),main = "Autocorrelation")
+acf((residuals(fit3))^2,main = "Autocorrelation") #show dependence/correlation between squartes;typical; use non-linear models 
+
+# pacf
+pacf(residuals(fit3),main = "Partial Autocorrelation")
+
+# Histogram
+hist(residuals(fit3),main = "Histogram")
+# q-q plot
+qqnorm(residuals(fit3))
+qqline(residuals(fit3),col ="blue")
+# Add overall title
+title("Fitted Residuals Diagnostics", outer=TRUE)
+par(op)
 ```
 
 ```{r}
 #setwd("C:/Users/Vivian/Documents/PSTAT174_project")
 #data forecasting 
-AIDS_ts_mod<-ts(AIDS$Cases, start=c(1994,1), freq=12, end=c(2002,7))
+AIDS_ts_mod<-ts(AIDS$Cases, start=c(1993,1), freq=12, end=c(2002,4))
 ```
 
 
@@ -155,22 +218,33 @@ mypred.se <- exp(mypred$se)#st. errors for original predictions
 # lines(99:103,pred.orig+1.96*mypred.se,lty=2)
 # lines(99:103,pred.orig-1.96*mypred.se,lty=2)
 
-fcast <- forecast(fit, h=5)
+fcast1 <- forecast(fit1, h=6)
+fcast2 <- forecast(fit2, h=6)
+fcast3 <- forecast(fit3, h=6)
 
 
 mod <- window(AIDS_ts_mod)
-fit_AIDS = arima(mod, order=c(9,3,12),method="ML")
-
-fcast_AIDS <- forecast(fit_AIDS, h=5)
 
 
+fit1_AIDS = arima(mod, order=c(9,3,4),method="ML")
+fit2_AIDS = arima(mod, order=c(9,3,10),method="ML")
+fit3_AIDS = arima(mod, order=c(9,3,12),method="ML")
 
-plot(fcast_AIDS)
+
+fcast1_AIDS <- forecast(fit1_AIDS, h=5)
+fcast2_AIDS <- forecast(fit2_AIDS, h=5)
+fcast3_AIDS <- forecast(fit3_AIDS, h=5)
+
+
+
+plot(fcast1_AIDS, xlab = "year", ylab="Number of cases")
+plot(fcast2_AIDS, xlab = "year", ylab="Number of cases")
+plot(fcast3_AIDS, xlab = "year", ylab="Number of cases")
 
 
 AIDS <- read.csv("AIDS.csv", header= TRUE,sep=",")
 
 AIDS_ts_orig<-ts(AIDS$Cases, start=c(1993,1), freq=12)
 
-ts.plot(AIDS_ts_orig, main="Adults ages 30-34 diagnosed with AIDS in the US, 1993-2002, monthly", ylab="Number of cases", xlab="time")
+ts.plot(AIDS_ts_orig, main="Adults ages 30-34 diagnosed with AIDS in the US, 1993-2002, monthly", ylab="Number of cases", xlab="year")
 ```
