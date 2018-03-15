@@ -23,6 +23,7 @@ My data set contains the monthly number of adults ages 30-34 who are diagnosed w
 library(MASS)
 library(qpcR)
 library(forecast)
+library(ggplot2)
 ```
 
 
@@ -199,52 +200,95 @@ AIDS_ts_mod<-ts(AIDS$Cases, start=c(1993,1), freq=12, end=c(2002,4))
 
 
 
-```{r}
+```{r message=FALSE, warning=FALSE}
 #install.packages("forecast")
 
 #plot data with 5 less points
-ts.plot(AIDS_ts_mod, main="Adults ages 30-34 diagnosed with AIDS in the US, 1994-2002, monthly", ylab="Number of cases", xlab="time")
-
-
-mypred <- predict(fit, n.ahead=5)
-pred.orig <-exp(mypred$pred) #backtransform
-mypred.se <- exp(mypred$se)#st. errors for original predictions
-
-# ts.plot(AIDS_ts_mod,xlim=c(1,length(AIDS_ts_mod)+5),ylim=c(0,max(pred.orig+1.96*mypred.se)))
-# 
-# ts.plot(AIDS_ts_mod, xlim = c(1994, 2003))
-# 
-# points((length(AIDS_ts_mod)+1):(length(AIDS_ts_mod)+5),pred.orig)
-# lines(99:103,pred.orig+1.96*mypred.se,lty=2)
-# lines(99:103,pred.orig-1.96*mypred.se,lty=2)
-
-fcast1 <- forecast(fit1, h=6)
-fcast2 <- forecast(fit2, h=6)
-fcast3 <- forecast(fit3, h=6)
-
-
 mod <- window(AIDS_ts_mod)
 
-
+# fit modified data using our models
 fit1_AIDS = arima(mod, order=c(9,3,4),method="ML")
 fit2_AIDS = arima(mod, order=c(9,3,10),method="ML")
 fit3_AIDS = arima(mod, order=c(9,3,12),method="ML")
 
 
+# use models to forecast 5 values ahead
 fcast1_AIDS <- forecast(fit1_AIDS, h=5)
 fcast2_AIDS <- forecast(fit2_AIDS, h=5)
 fcast3_AIDS <- forecast(fit3_AIDS, h=5)
 
-
-
 plot(fcast1_AIDS, xlab = "year", ylab="Number of cases")
 plot(fcast2_AIDS, xlab = "year", ylab="Number of cases")
-plot(fcast3_AIDS, xlab = "year", ylab="Number of cases")
+plot(fcast3_AIDS, xlab = "year", ylab="Number of cases", col="seagreen")
+```
 
+
+```{r}
+# compare our model fits visually
+ts.plot(AIDS_ts_mod, main="Fitted using ARIMA(9,3,4)", ylab="Number of cases", xlab="year")
+lines(fitted(fcast1_AIDS), col="goldenrod")
+rect(col="gray")
+
+ts.plot(AIDS_ts_mod, main="Fitted using ARIMA(9,3,10)", ylab="Number of cases", xlab="year")
+lines(fitted(fcast2_AIDS), col="skyblue")
+
+ts.plot(AIDS_ts_mod, main="Fitted using ARIMA(9,3,12)", ylab="Number of cases", xlab="year")
+lines(fitted(fcast3_AIDS), col="seagreen") # this one seems to be the best
+
+# compare the forecasted values with the 5 values that we removed 
 
 AIDS <- read.csv("AIDS.csv", header= TRUE,sep=",")
+AIDS_ts_orig<-ts(AIDS$Cases, start=c(1993,1), freq=12) # original data
 
-AIDS_ts_orig<-ts(AIDS$Cases, start=c(1993,1), freq=12)
+plot(fcast1_AIDS, xlab = "year", ylab="Number of cases")
+lines(AIDS_ts_orig)
 
-ts.plot(AIDS_ts_orig, main="Adults ages 30-34 diagnosed with AIDS in the US, 1993-2002, monthly", ylab="Number of cases", xlab="year")
+plot(fcast2_AIDS, xlab = "year", ylab="Number of cases") # this one seems to do better overall
+lines(AIDS_ts_orig)
+
+plot(fcast3_AIDS, xlab = "year", ylab="Number of cases")
+lines(AIDS_ts_orig)
+
+
+```
+
+```{r}
+
+# attempting ggplot stuff 
+
+mod_df <- data.frame(
+  year = dates,
+  cases = AIDS_ts_mod
+)
+
+
+f1 <- data.frame(
+  year = dates,
+  cases = fcast1_AIDS$fitted
+)
+
+
+f2 <- data.frame(
+  year = dates,
+  cases = fcast2_AIDS$fitted
+)
+
+
+f3 <- data.frame(
+  year = dates,
+  cases = fcast3_AIDS$fitted
+)
+
+
+
+AIDS
+ggplot(mod_df, aes(x = year, y=cases)) + 
+  geom_line(data = mod_df, aes(x = year, y = cases), color = "black") +
+  geom_line(data = fcast1_AIDS, aes(x = year, y = fitted), color = "blue") +
+  xlab('year') +
+  ylab('cases')
+
+
+
+dates <- format(as.POSIXct(AIDS$Month.Reported.Code[1:112], tz="", format = "%Y/%M"), format="%M-%Y")
 ```
