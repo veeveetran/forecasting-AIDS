@@ -18,7 +18,7 @@ My project addresses how to find a linear model to forecast the future values of
 My data set contains the monthly number of adults ages 30-34 who are diagnosed with AIDS in the United states from 1993 to 2002. By forecasting the future number of cases, medical suppliers and healthcare providers can plan their resources and better care for patients in the later years. I retrieved my data from CDC WONDER, CDC’s database for public-use health data. A full description of the dataset can be found on their [website](https://wonder.cdc.gov/wonder/help/aids.html). I used R to analyze the data.
 
 ###Packages Used
-```{r}
+```{r message=FALSE, warning=FALSE}
 library(MASS)
 library(qpcR)
 library(forecast)
@@ -34,35 +34,46 @@ AIDS <- read.csv("AIDS.csv", header= TRUE,sep=",")
 AIDS_ts<-ts(AIDS$Cases, start=c(1993,1), freq=12)
 ```
 
+Looking at the raw time series, we can see that there is a clear trend component in our data. The number of cases decreases gradually over the years, starting from 2000 cases around the year 1994 to around 500-800 cases in 2002. There is also non-constant variance, since the amplitude of the curves changes over time. However, there does not seem to be any strong seasonal component or sharp changes in the plot. 
+
 ```{r}
 #plot data
 ts.plot(AIDS_ts, main="Adults ages 30-34 diagnosed with AIDS in the US, 1993-2002, monthly", ylab="Number of cases", xlab="time")
 ```
-
-```{r}
+## Creating a stationary time series 
+Since there is non-constant variance, I decided to transform my data using a Box-Cox method:
+```{r echo=FALSE}
 #boxcox
 bcTrans <- boxcox(AIDS_ts ~ as.numeric(1:length(AIDS_ts)))
 bcTrans2 <- boxcox(AIDS_ts ~ as.numeric(1:length(AIDS_ts)), lambda=seq(-.5,.5, len=100))
 ```
-
-```{r}
+From the Box-Cox plot, I chose lambda to be 0, resulting in a log-transformation:
+```{r echo=FALSE}
 #choose lambda=0, so log transform
 y.log <- log(AIDS_ts) 
 
 #plot transformation
 
-ts.plot(y.log,main = "Log")
+ts.plot(y.log,main = "log-transformed time series")
 ```
 
-```{r}
+##Removing trend component 
+After log-transforming the data, I had constant variance. However, the data still had a trend component. To de-trend, I differenced my transformed data three times at lag=1. I chose to difference 3 times since the variance of the data kept going down until the third time I differenced. When I differenced 4 times, the variance went back up.
+```{r echo=TRUE}
 # differencing to remove trend
 y.log.diff3 <- diff(y.log,3)
-ts.plot(y.log.diff3,main = "Differenced Data 3 times",ylab=expression(paste(nabla,y)))
+ts.plot(y.log.diff3,main = "Data Differenced 3 Times",ylab=expression(paste(nabla,y)))
 
 #differencing at lag1 3 times has lowest variance
 ```
+The data is now stationary because there is no trend component, no seasonal component, and no apparent changes in behavior over time (constant variance), fulfilling all of the assumptions to begin modeling our data using autoregressive models, moving-average models, or a combination of the two. 
 
-```{r}
+##Determining orders p and q in ARIMA(p,d,q)
+
+Recall that d=3 because I differenced 3 times. To determine orders q and p, I looked at the autocorrelation and partial autocorrelation functions (ACF and PACF) of the data respectively.
+
+Based on these plots, I chose p=9 because the PACF plot cuts off after lag 9, and q=12 because ACF cuts off after lag 12. I also decided to include q=10 because it is near the cut-off.
+```{r echo=FALSE}
 #acf, pacf
 
 op <- par(mfrow = c(1,2))
@@ -71,7 +82,8 @@ pacf(y.log.diff3)
 par(op)
 ```
 
-```{r message=FALSE, warning=FALSE}
+Computing the AICc values, we see that the suggested model was ARIMA(9,3,4) because it had the lowest AIC(C) value:
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 # Calculate AICc for ARMA models with p and q 
 #suggested model: ARIMA(9,3,4)
 
@@ -86,29 +98,54 @@ for(p in 0:10)
 }
 aiccs
 ```
+ 
+##Models and coefficients 
 
-```{r message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 #coefficients of potential models
 fit1 = arima(y.log.diff3, order=c(9,3,4),method="ML") #lowest AICc
 fit2 = arima(y.log.diff3, order=c(9,3,10),method="ML") #check just in case
 fit3 = arima(y.log.diff3, order=c(9,3,12),method="ML") #suggested model by ACF/PACF
+```
+To summarize, the potential models were ARIMA(9,3,4), ARIMA(9,3,10), ARIMA(9,3,12). 
 
+###Coefficients for ARIMA(9,3,4)
+```{r}
 fit1
+```
+
+###Coefficients for ARIMA(9,3,10)
+```{r}
 fit2
+```
+
+###Coefficients for ARIMA(9,3,12)
+```{r}
 fit3
 ```
 
-####ARIMA(9,3,4)
+##Residual Diagnostics
+ 
+###ARIMA(9,3,4)
+
+####Test for Independence
+Model residuals passed ljung and Box-Pierce tests for independence; data is randomly distributed
 ```{r}
 # Test for independence of residuals
 Box.test(residuals(fit1), type="Ljung")
 Box.test(residuals(fit1), type="Box-Pierce")
+```
+
+####Tests for Normality
+Model residuals passed test Shapiro test for normality; data is normally distributed
+```{r}
 #test normality of residuals
 shapiro.test(residuals(fit1))
 
 ts.plot(residuals(fit1),main = "Fitted Residuals")
+```
 
-
+```{r}
 par(mfrow=c(1,2),oma=c(0,0,2,0))
 # Plot diagnostics of residuals
 op <- par(mfrow=c(2,2))
@@ -129,14 +166,24 @@ title("Fitted Residuals Diagnostics", outer=TRUE)
 par(op)
 ```
 
-####ARIMA(9,3,10)
-```{r}
+###ARIMA(9,3,10)
+
+####Test for Independence
+Model residuals passed ljung and Box-Pierce tests for independence; data is randomly distributed
+```{r echo=FALSE}
 # Test for independence of residuals
 Box.test(residuals(fit2), type="Ljung")
 Box.test(residuals(fit2), type="Box-Pierce")
+```
+
+####Tests for Normality
+Model residuals passed test Shapiro test for normality; data is normally distributed
+```{r echo=FALSE}
 #test normality of residuals
 shapiro.test(residuals(fit2))
+```
 
+```{r echo=FALSE}
 ts.plot(residuals(fit2),main = "Fitted Residuals")
 
 
@@ -160,14 +207,25 @@ title("Fitted Residuals Diagnostics", outer=TRUE)
 par(op)
 ```
 
-####ARIMA(9,3,12)
-```{r}
+###ARIMA(9,3,12)
+
+####Test for Independence
+Model residuals passed ljung and Box-Pierce tests for independence; data is randomly distributed
+
+```{r echo=FALSE}
 # Test for independence of residuals
 Box.test(residuals(fit3), type="Ljung")
 Box.test(residuals(fit3), type="Box-Pierce")
+```
+
+####Tests for Normality
+Model residuals passed test Shapiro test for normality; data is normally distributed
+```{r echo=FALSE}
 #test normality of residuals
 shapiro.test(residuals(fit3))
+```
 
+```{r echo=FALSE}
 ts.plot(residuals(fit3),main = "Fitted Residuals")
 
 
