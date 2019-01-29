@@ -1,4 +1,4 @@
-PSTAT 174
+A Look into the Future: Forecasting Cases of AIDS
 ================
 Vivian Tran
 3/12/2018
